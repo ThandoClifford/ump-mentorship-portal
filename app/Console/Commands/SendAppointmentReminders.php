@@ -60,7 +60,7 @@ class SendAppointmentReminders extends Command
                     }
 
                     try {
-                        Mail::to($appointment->student->email)->send(new AppointmentReminderMail($appointment));
+                        Mail::to($appointment->student->email)->queue(new AppointmentReminderMail($appointment));
                         $appointment->update(['reminder_sent_at' => now()]);
                         $sentCount++;
                         $this->info('Reminder sent for appointment #'.$appointment->id);

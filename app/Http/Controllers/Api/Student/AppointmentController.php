@@ -99,7 +99,7 @@ class AppointmentController extends Controller
 
         if (is_null($appointment->confirmed_sent_at)) {
             try {
-                Mail::to($appointment->student->email)->send(new AppointmentConfirmedMail($appointment));
+                Mail::to($appointment->student->email)->queue(new AppointmentConfirmedMail($appointment));
                 $appointment->update(['confirmed_sent_at' => now()]);
                 $appointment->refresh();
             } catch (\Throwable $exception) {
@@ -192,7 +192,7 @@ class AppointmentController extends Controller
 
         if (is_null($updatedAppointment->cancelled_sent_at)) {
             try {
-                Mail::to($updatedAppointment->student->email)->send(new AppointmentCancelledMail($updatedAppointment));
+                Mail::to($updatedAppointment->student->email)->queue(new AppointmentCancelledMail($updatedAppointment));
                 $updatedAppointment->update(['cancelled_sent_at' => now()]);
                 $updatedAppointment->refresh();
             } catch (\Throwable $exception) {
