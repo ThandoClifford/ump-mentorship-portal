@@ -29,6 +29,7 @@ class ReportsController extends Controller
         $confirmedCount = (clone $baseQuery)->where('appointments.status', 'confirmed')->count();
         $cancelledCount = (clone $baseQuery)->where('appointments.status', 'cancelled')->count();
         $completedCount = (clone $baseQuery)->where('appointments.status', 'completed')->count();
+        $pendingCount = (clone $baseQuery)->where('appointments.status', 'pending')->count();
 
         $topMentors = (clone $baseQuery)
             ->join('users as mentors', 'appointments.mentor_id', '=', 'mentors.id')
@@ -56,6 +57,7 @@ class ReportsController extends Controller
             'confirmed_count' => $confirmedCount,
             'cancelled_count' => $cancelledCount,
             'completed_count' => $completedCount,
+            'pending_count' => $pendingCount,
             'top_mentors' => $topMentors,
             'busiest_days' => $busiestDays,
             'from' => $from,
