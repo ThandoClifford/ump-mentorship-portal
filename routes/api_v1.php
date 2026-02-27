@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\MentorController;
 use App\Http\Controllers\Api\Admin\ReportsController;
 use App\Http\Controllers\Api\Admin\SlotController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\MetricsController;
 use App\Http\Controllers\Api\Mentor\MentorAppointmentsController;
 use App\Http\Controllers\Api\Student\AppointmentController;
 use App\Http\Controllers\Api\Student\SlotBrowserController;
@@ -49,6 +50,9 @@ Route::get('/health', function () {
         ], 503);
     }
 });
+
+Route::get('/metrics', MetricsController::class)
+    ->middleware(['auth:sanctum', 'role:admin,super_admin']);
 
 Route::prefix('admin')
     ->middleware(['auth:sanctum', 'role:admin,super_admin'])
