@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 
 class OpsAlertsController extends Controller
 {
@@ -65,6 +66,22 @@ class OpsAlertsController extends Controller
             if ($queueConn === 'database') {
                 $queueSizeSupported = true;
                 $queueSize = DB::table('jobs')->count();
+
+                if ($queueSize >= $queueThreshold) {
+                    $alerts[] = [
+                        'severity' => 'warning',
+                        'code' => 'QUEUE_BACKLOG_HIGH',
+                        'message' => 'Queue backlog is high.',
+                        'details' => [
+                            'queue_connection' => $queueConn,
+                            'queue_size' => $queueSize,
+                            'threshold' => $queueThreshold,
+                        ],
+                    ];
+                }
+            } elseif ($queueConn === 'redis') {
+                $queueSizeSupported = true;
+                $queueSize = (int) Redis::llen('queues:default');
 
                 if ($queueSize >= $queueThreshold) {
                     $alerts[] = [
