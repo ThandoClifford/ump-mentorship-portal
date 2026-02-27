@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => \App\Http\Middleware\RequireRole::class,
+            'request.id' => \App\Http\Middleware\RequestId::class,
             'sec.headers' => \App\Http\Middleware\SecurityHeaders::class,
         ]);
     })
