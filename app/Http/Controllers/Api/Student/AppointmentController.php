@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api\Student;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AppointmentCancelledMail;
+use App\Mail\AppointmentConfirmedMail;
 use App\Models\Appointment;
 use App\Models\TimeSlot;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AppointmentController extends Controller
 {
@@ -86,11 +89,24 @@ class AppointmentController extends Controller
         }
 
         $appointment->load([
+            'student:id,name,email',
             'timeSlot:id,mentor_id,date,start_time,end_time,status',
             'mentor:id,name,email',
         ]);
 
-        return $this->success('Appointment booked successfully', $appointment, 201);
+        $mailWarning = null;
+
+        if (is_null($appointment->confirmed_sent_at)) {
+            try {
+                Mail::to($appointment->student->email)->send(new AppointmentConfirmedMail($appointment));
+                $appointment->update(['confirmed_sent_at' => now()]);
+                $appointment->refresh();
+            } catch (\Throwable $exception) {
+                $mailWarning = ' Confirmation email could not be sent.';
+            }
+        }
+
+        return $this->success('Appointment booked successfully.'.($mailWarning ?? ''), $appointment, 201);
     }
 
     public function index(Request $request)
@@ -154,11 +170,24 @@ class AppointmentController extends Controller
             }
 
             return $appointment->fresh([
+                'student:id,name,email',
                 'timeSlot:id,mentor_id,date,start_time,end_time,status',
                 'mentor:id,name,email',
             ]);
         });
 
-        return $this->success('Appointment cancelled', $updatedAppointment);
+        $mailWarning = null;
+
+        if (is_null($updatedAppointment->cancelled_sent_at)) {
+            try {
+                Mail::to($updatedAppointment->student->email)->send(new AppointmentCancelledMail($updatedAppointment));
+                $updatedAppointment->update(['cancelled_sent_at' => now()]);
+                $updatedAppointment->refresh();
+            } catch (\Throwable $exception) {
+                $mailWarning = ' Cancellation email could not be sent.';
+            }
+        }
+
+        return $this->success('Appointment cancelled'.($mailWarning ?? ''), $updatedAppointment);
     }
 }
