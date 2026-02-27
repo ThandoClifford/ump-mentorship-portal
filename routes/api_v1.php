@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Mentor\MentorAppointmentsController;
 use App\Http\Controllers\Api\Student\AppointmentController;
 use App\Http\Controllers\Api\Student\SlotBrowserController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function () {
@@ -23,6 +24,30 @@ Route::get('/ping', function () {
         'message' => 'pong',
         'data' => null,
     ]);
+});
+
+Route::get('/health', function () {
+    try {
+        DB::select('select 1');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'ok',
+            'data' => [
+                'app_time' => now()->toIso8601String(),
+                'db_ok' => true,
+            ],
+        ]);
+    } catch (\Throwable $exception) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Service unavailable',
+            'data' => [
+                'app_time' => now()->toIso8601String(),
+                'db_ok' => false,
+            ],
+        ], 503);
+    }
 });
 
 Route::prefix('admin')
