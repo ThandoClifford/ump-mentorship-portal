@@ -80,6 +80,26 @@ return Application::configure(basePath: dirname(__DIR__))
                 'trace' => $exception->getTraceAsString(),
             ]);
 
+            if (app()->bound('sentry')) {
+                app('sentry')->configureScope(function ($scope) use ($request): void {
+                    if ($request->user()) {
+                        $scope->setUser([
+                            'id' => (string) $request->user()->id,
+                        ]);
+                    }
+
+                    $scope->setTag('route', $request->route()?->getName() ?? 'unnamed');
+                    $scope->setTag('path', $request->path());
+
+                    $requestId = $request->header('X-Request-ID') ?: $request->attributes->get('request_id');
+                    if ($requestId) {
+                        $scope->setTag('request_id', (string) $requestId);
+                    }
+                });
+
+                app('sentry')->captureException($exception);
+            }
+
             $message = config('app.debug')
                 ? ($exception->getMessage() ?: 'Server error')
                 : 'Server error';
