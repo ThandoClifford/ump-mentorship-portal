@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Admin\AvailabilityController;
 use App\Http\Controllers\Api\Admin\MentorController;
 use App\Http\Controllers\Api\Admin\SlotController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Mentor\MentorAppointmentsController;
 use App\Http\Controllers\Api\Student\AppointmentController;
 use App\Http\Controllers\Api\Student\SlotBrowserController;
 use Illuminate\Support\Facades\Route;
@@ -46,4 +47,12 @@ Route::prefix('student')
         Route::post('/appointments', [AppointmentController::class, 'store']);
         Route::get('/appointments', [AppointmentController::class, 'index']);
         Route::patch('/appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
+    });
+
+Route::prefix('mentor')
+    ->middleware(['auth:sanctum', 'role:mentor'])
+    ->group(function () {
+        Route::get('/appointments', [MentorAppointmentsController::class, 'index']);
+        Route::patch('/appointments/{id}/complete', [MentorAppointmentsController::class, 'complete']);
+        Route::post('/appointments/{id}/notes', [MentorAppointmentsController::class, 'upsertNotes']);
     });
