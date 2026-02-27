@@ -60,6 +60,16 @@ class AppointmentController extends Controller
                     ], 422));
                 }
 
+                $slotAlreadyHasAppointment = Appointment::where('time_slot_id', $slot->id)->exists();
+
+                if ($slotAlreadyHasAppointment) {
+                    abort(response()->json([
+                        'success' => false,
+                        'message' => 'This slot has been used before and cannot be booked again',
+                        'data' => null,
+                    ], 422));
+                }
+
                 $appointment = Appointment::create([
                     'student_id' => $studentId,
                     'mentor_id' => $slot->mentor_id,
