@@ -29,13 +29,14 @@ class SendAppointmentReminders extends Command
      */
     public function handle(): int
     {
+        $hours = (int) env('REMINDER_WINDOW_HOURS', 24);
         $windowStart = now();
-        $windowEnd = now()->addHours(24);
+        $windowEnd = now()->addHours($hours);
         $scannedCount = 0;
         $sentCount = 0;
         $skippedCount = 0;
 
-        $this->info('Scanning confirmed appointments from '.$windowStart->toDateTimeString().' to '.$windowEnd->toDateTimeString());
+        $this->info('Scanning confirmed appointments from '.$windowStart->toDateTimeString().' to '.$windowEnd->toDateTimeString().' (window: '.$hours.'h)');
 
         Appointment::query()
             ->where('status', 'confirmed')
