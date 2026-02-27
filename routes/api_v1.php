@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AvailabilityController;
 use App\Http\Controllers\Api\Admin\MentorController;
+use App\Http\Controllers\Api\Admin\OpsAlertsController;
 use App\Http\Controllers\Api\Admin\OpsController;
 use App\Http\Controllers\Api\Admin\ReportsController;
 use App\Http\Controllers\Api\Admin\SlotController;
@@ -71,6 +72,7 @@ Route::prefix('admin')
         Route::post('/mentors/{mentorId}/generate-slots', [SlotController::class, 'generateForMentor']);
         Route::get('/reports/summary', [ReportsController::class, 'summary']);
         Route::get('/ops', [OpsController::class, 'show']);
+        Route::get('/ops/alerts', [OpsAlertsController::class, 'index']);
     });
 
 Route::prefix('student')
