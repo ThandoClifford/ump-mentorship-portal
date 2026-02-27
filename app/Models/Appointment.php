@@ -14,6 +14,15 @@ class Appointment extends Model
         'time_slot_id',
         'status',
         'cancelled_reason',
+        'confirmed_sent_at',
+        'cancelled_sent_at',
+        'reminder_sent_at',
+    ];
+
+    protected $casts = [
+        'confirmed_sent_at' => 'datetime',
+        'cancelled_sent_at' => 'datetime',
+        'reminder_sent_at' => 'datetime',
     ];
 
     public function student(): BelongsTo
