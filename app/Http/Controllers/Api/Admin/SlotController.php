@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MentorAvailability;
 use App\Models\TimeSlot;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -89,6 +90,20 @@ class SlotController extends Controller
                 'skipped' => $skipped,
             ];
         });
+
+        AuditService::log(
+            (int) $request->user()->id,
+            'slots.generated',
+            'User',
+            (int) $mentor->id,
+            [
+                'mentor_id' => (int) $mentor->id,
+                'start_date' => $validated['start_date'],
+                'end_date' => $validated['end_date'],
+                'created' => (int) $result['created'],
+                'skipped' => (int) $result['skipped'],
+            ]
+        );
 
         return $this->success('Slots generated', $result);
     }

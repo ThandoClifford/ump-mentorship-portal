@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\MentorAvailability;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -58,6 +59,19 @@ class AvailabilityController extends Controller
             $availability->update(['is_active' => $validated['is_active']]);
         }
 
+        AuditService::log(
+            (int) $request->user()->id,
+            $availability->wasRecentlyCreated ? 'availability.created' : 'availability.updated',
+            'MentorAvailability',
+            (int) $availability->id,
+            [
+                'mentor_id' => (int) $mentor->id,
+                'day_of_week' => $availability->day_of_week,
+                'start_time' => $availability->start_time,
+                'end_time' => $availability->end_time,
+            ]
+        );
+
         return $this->success(
             $availability->wasRecentlyCreated ? 'Availability created' : 'Availability already exists',
             $availability->fresh(),
@@ -89,6 +103,16 @@ class AvailabilityController extends Controller
 
         $availability->update($validated);
 
+        AuditService::log(
+            (int) $request->user()->id,
+            'availability.updated',
+            'MentorAvailability',
+            (int) $availability->id,
+            [
+                'fields' => array_keys($validated),
+            ]
+        );
+
         return $this->success('Availability updated', $availability->fresh());
     }
 
@@ -101,6 +125,13 @@ class AvailabilityController extends Controller
         }
 
         $availability->delete();
+
+        AuditService::log(
+            (int) auth()->id(),
+            'availability.deleted',
+            'MentorAvailability',
+            (int) $availability->id
+        );
 
         return $this->success('Availability deleted');
     }

@@ -7,6 +7,7 @@ use App\Mail\AppointmentCancelledMail;
 use App\Mail\AppointmentConfirmedMail;
 use App\Models\Appointment;
 use App\Models\TimeSlot;
+use App\Services\AuditService;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -106,6 +107,17 @@ class AppointmentController extends Controller
             }
         }
 
+        AuditService::log(
+            $studentId,
+            'appointment.booked',
+            'Appointment',
+            (int) $appointment->id,
+            [
+                'slot_id' => (int) $appointment->time_slot_id,
+                'mentor_id' => (int) $appointment->mentor_id,
+            ]
+        );
+
         return $this->success('Appointment booked successfully.'.($mailWarning ?? ''), $appointment, 201);
     }
 
@@ -187,6 +199,16 @@ class AppointmentController extends Controller
                 $mailWarning = ' Cancellation email could not be sent.';
             }
         }
+
+        AuditService::log(
+            $studentId,
+            'appointment.cancelled',
+            'Appointment',
+            (int) $updatedAppointment->id,
+            [
+                'reason' => (string) ($updatedAppointment->cancelled_reason ?? ''),
+            ]
+        );
 
         return $this->success('Appointment cancelled'.($mailWarning ?? ''), $updatedAppointment);
     }

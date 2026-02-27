@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -37,6 +38,16 @@ class MentorController extends Controller
             'role' => UserRole::MENTOR->value,
         ]);
 
+        AuditService::log(
+            (int) $request->user()->id,
+            'mentor.created',
+            'User',
+            (int) $mentor->id,
+            [
+                'role' => UserRole::MENTOR->value,
+            ]
+        );
+
         return $this->success('Mentor created', $mentor, 201);
     }
 
@@ -63,6 +74,16 @@ class MentorController extends Controller
 
         $mentor->update($validated);
 
+        AuditService::log(
+            (int) $request->user()->id,
+            'mentor.updated',
+            'User',
+            (int) $mentor->id,
+            [
+                'fields' => array_keys($validated),
+            ]
+        );
+
         return $this->success('Mentor updated', $mentor->fresh());
     }
 
@@ -77,6 +98,13 @@ class MentorController extends Controller
         }
 
         $mentor->delete();
+
+        AuditService::log(
+            (int) auth()->id(),
+            'mentor.deleted',
+            'User',
+            (int) $mentor->id
+        );
 
         return $this->success('Mentor deleted');
     }

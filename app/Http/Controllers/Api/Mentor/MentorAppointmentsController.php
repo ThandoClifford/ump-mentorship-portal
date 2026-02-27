@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Mentor;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\SessionNote;
+use App\Services\AuditService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,13 @@ class MentorAppointmentsController extends Controller
 
         $appointment->update(['status' => 'completed']);
 
+        AuditService::log(
+            (int) $request->user()->id,
+            'appointment.completed',
+            'Appointment',
+            (int) $appointment->id
+        );
+
         return $this->success('Appointment marked as completed', $appointment->fresh());
     }
 
@@ -85,6 +93,16 @@ class MentorAppointmentsController extends Controller
                 ]
             );
         });
+
+        AuditService::log(
+            (int) $request->user()->id,
+            'appointment.notes_updated',
+            'Appointment',
+            (int) $appointment->id,
+            [
+                'session_note_id' => (int) $note->id,
+            ]
+        );
 
         return $this->success('Session note saved', $note);
     }
