@@ -32,7 +32,7 @@ return [
 
         'destination' => [
             'filename_prefix' => '',
-            'disks' => explode(',', (string) env('BACKUP_DISKS', 'local')),
+            'disks' => explode(',', (string) env('BACKUP_DISKS', 's3-backups')),
         ],
 
         'temporary_directory' => storage_path('app/backup-temp'),
@@ -59,7 +59,7 @@ return [
         'notifiable' => 'Spatie\\Backup\\Notifications\\Notifiable',
 
         'mail' => [
-            'to' => explode(',', (string) env('BACKUP_MAIL_TO', '')),
+            'to' => array_values(array_filter(array_map('trim', explode(',', (string) env('BACKUP_NOTIFICATION_EMAIL', ''))))),
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
                 'name' => env('APP_NAME', 'Laravel'),
@@ -83,7 +83,7 @@ return [
     'monitor_backups' => [
         [
             'name' => env('APP_NAME', 'laravel-backup'),
-            'disks' => explode(',', (string) env('BACKUP_DISKS', 'local')),
+            'disks' => explode(',', (string) env('BACKUP_DISKS', 's3-backups')),
             'health_checks' => [
                 'Spatie\\Backup\\Tasks\\Monitor\\HealthChecks\\MaximumAgeInDays' => 1,
                 'Spatie\\Backup\\Tasks\\Monitor\\HealthChecks\\MaximumStorageInMegabytes' => 5000,
