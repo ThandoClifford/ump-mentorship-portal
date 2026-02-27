@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('send:appointment-reminders')
     ->hourly()
     ->withoutOverlapping();
+
+Schedule::command('backup:run')
+    ->daily()
+    ->at('02:00');
