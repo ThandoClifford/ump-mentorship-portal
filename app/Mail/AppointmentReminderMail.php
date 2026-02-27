@@ -13,7 +13,10 @@ class AppointmentReminderMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Appointment $appointment) {}
+    public function __construct(public Appointment $appointment)
+    {
+        $this->appointment->loadMissing(['student', 'mentor', 'timeSlot']);
+    }
 
     /**
      * Get the message envelope.
@@ -21,7 +24,7 @@ class AppointmentReminderMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Mentorship Appointment Reminder (Tomorrow)',
+            subject: 'Mentorship Appointment Reminder',
         );
     }
 
@@ -32,6 +35,12 @@ class AppointmentReminderMail extends Mailable
     {
         return new Content(
             view: 'emails.appointment_reminder',
+            with: [
+                'appointment' => $this->appointment,
+                'student' => $this->appointment->student,
+                'mentor' => $this->appointment->mentor,
+                'slot' => $this->appointment->timeSlot,
+            ],
         );
     }
 

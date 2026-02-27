@@ -13,7 +13,10 @@ class AppointmentConfirmedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Appointment $appointment) {}
+    public function __construct(public Appointment $appointment)
+    {
+        $this->appointment->loadMissing(['student', 'mentor', 'timeSlot']);
+    }
 
     /**
      * Get the message envelope.
@@ -32,6 +35,12 @@ class AppointmentConfirmedMail extends Mailable
     {
         return new Content(
             view: 'emails.appointment_confirmed',
+            with: [
+                'appointment' => $this->appointment,
+                'student' => $this->appointment->student,
+                'mentor' => $this->appointment->mentor,
+                'slot' => $this->appointment->timeSlot,
+            ],
         );
     }
 

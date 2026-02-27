@@ -30,9 +30,10 @@ class SendAppointmentReminders extends Command
     public function handle(): int
     {
         $windowStart = now();
-        $windowEnd = now()->addDay();
+        $windowEnd = now()->addHours(24);
+        $scannedCount = 0;
         $sentCount = 0;
-        $failedCount = 0;
+        $skippedCount = 0;
 
         $this->info('Scanning confirmed appointments from '.$windowStart->toDateTimeString().' to '.$windowEnd->toDateTimeString());
 
@@ -41,15 +42,19 @@ class SendAppointmentReminders extends Command
             ->whereNull('reminder_sent_at')
             ->with(['student:id,name,email', 'mentor:id,name,email', 'timeSlot:id,date,start_time,end_time,mentor_id'])
             ->orderBy('id')
-            ->chunkById(100, function ($appointments) use ($windowStart, $windowEnd, &$sentCount, &$failedCount) {
+            ->chunkById(100, function ($appointments) use ($windowStart, $windowEnd, &$scannedCount, &$sentCount, &$skippedCount) {
                 foreach ($appointments as $appointment) {
+                    $scannedCount++;
+
                     if (! $appointment->timeSlot || ! $appointment->student) {
+                        $skippedCount++;
                         continue;
                     }
 
                     $appointmentDateTime = Carbon::parse($appointment->timeSlot->date.' '.$appointment->timeSlot->start_time);
 
                     if (! $appointmentDateTime->betweenIncluded($windowStart, $windowEnd)) {
+                        $skippedCount++;
                         continue;
                     }
 
@@ -59,13 +64,13 @@ class SendAppointmentReminders extends Command
                         $sentCount++;
                         $this->info('Reminder sent for appointment #'.$appointment->id);
                     } catch (\Throwable $exception) {
-                        $failedCount++;
+                        $skippedCount++;
                         $this->error('Failed reminder for appointment #'.$appointment->id.': '.$exception->getMessage());
                     }
                 }
             });
 
-        $this->info('Reminder run complete. Sent: '.$sentCount.', Failed: '.$failedCount);
+        $this->info('Reminder run complete. Scanned: '.$scannedCount.', Sent: '.$sentCount.', Skipped: '.$skippedCount);
 
         return self::SUCCESS;
     }
