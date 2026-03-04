@@ -24,6 +24,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'faculty',
+        'mentor_verified_at',
     ];
 
     /**
@@ -45,6 +47,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'mentor_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
         ];

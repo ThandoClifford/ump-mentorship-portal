@@ -7,6 +7,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -24,10 +25,19 @@ return Application::configure(basePath: dirname(__DIR__))
             'req.id' => \App\Http\Middleware\RequestId::class,
             'request.id' => \App\Http\Middleware\RequestId::class,
             'sec.headers' => \App\Http\Middleware\SecurityHeaders::class,
+            'admin.session' => \App\Http\Middleware\RequireAdminSession::class,
+            'portal.session' => \App\Http\Middleware\RequirePortalSession::class,
+            'portal.role' => \App\Http\Middleware\RequirePortalRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (Throwable $exception, Request $request) {
+            if ($exception instanceof TokenMismatchException && ! $request->expectsJson() && ! $request->is('api/*')) {
+                return redirect()->route('login')->withErrors([
+                    'auth' => 'Your session expired. Please try again.',
+                ]);
+            }
+
             if (! $request->expectsJson() && ! $request->is('api/*')) {
                 return null;
             }

@@ -16,6 +16,8 @@ class Appointment extends Model
         'mentor_id',
         'time_slot_id',
         'status',
+        'student_contact_details',
+        'appointment_subject',
         'cancelled_reason',
         'confirmed_sent_at',
         'cancelled_sent_at',
