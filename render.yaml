@@ -4,10 +4,6 @@ services:
     env: docker
     plan: free
     autoDeploy: true
-    disk:
-      name: ump-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: APP_ENV
         value: production
@@ -20,7 +16,7 @@ services:
       - key: DB_CONNECTION
         value: sqlite
       - key: DB_DATABASE
-        value: /var/data/database.sqlite
+        value: /tmp/database.sqlite
       - key: SESSION_DRIVER
         value: file
       - key: CACHE_STORE

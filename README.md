@@ -106,5 +106,5 @@ Ensure your latest changes are in GitHub.
 
 ### Notes
 
-- Persistent disk is configured in `render.yaml` for SQLite storage.
+- Render free tier does not support persistent disk on web services; SQLite is configured at `/tmp/database.sqlite` (ephemeral).
 - If you later move to MySQL/PostgreSQL, update DB env vars in Render.
