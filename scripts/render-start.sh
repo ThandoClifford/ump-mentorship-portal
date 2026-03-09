@@ -3,6 +3,9 @@ set -e
 
 cd /var/www/html
 
+# Force production assets from public/build instead of local Vite dev server.
+rm -f public/hot
+
 if [ -z "$APP_KEY" ]; then
   export APP_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
 fi
