@@ -77,3 +77,34 @@ php artisan l5-swagger:generate
 
 - Keep API docs updated after route/controller changes.
 - Use Bearer tokens in Swagger UI for protected endpoints.
+
+## Hosting (Render)
+
+This repository is prepared for Docker-based deployment on Render.
+
+### 1. Push to GitHub
+
+Ensure your latest changes are in GitHub.
+
+### 2. Create Web Service on Render
+
+1. In Render, choose `New` -> `Blueprint`.
+2. Connect this GitHub repository.
+3. Render will detect `render.yaml` and create the web service.
+
+### 3. Set Required Environment Variable
+
+- Set `APP_KEY` in Render environment variables (generate locally with `php artisan key:generate --show`).
+
+### 4. Deploy
+
+- Trigger deploy. The startup script will:
+	- ensure SQLite file exists at `/var/data/database.sqlite`
+	- run migrations
+	- create storage symlink
+	- start Laravel on Render port
+
+### Notes
+
+- Persistent disk is configured in `render.yaml` for SQLite storage.
+- If you later move to MySQL/PostgreSQL, update DB env vars in Render.
