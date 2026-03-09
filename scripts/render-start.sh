@@ -3,6 +3,10 @@ set -e
 
 cd /var/www/html
 
+if [ -z "$APP_KEY" ]; then
+  export APP_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+fi
+
 if [ -n "$DB_DATABASE" ]; then
   mkdir -p "$(dirname "$DB_DATABASE")"
   if [ ! -f "$DB_DATABASE" ]; then
