@@ -25,6 +25,7 @@ class User extends Authenticatable
         'password',
         'role',
         'faculty',
+        'profile_photo_path',
         'mentor_verified_at',
     ];
 

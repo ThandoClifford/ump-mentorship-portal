@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -60,6 +61,88 @@ $syncMentorDefaultAvailabilities = function (int $mentorId) use ($defaultMentorA
     }
 };
 
+if (! function_exists('syncMentorSlotsFromAvailability')) {
+function syncMentorSlotsFromAvailability(int $mentorId, Carbon $windowStart, Carbon $windowEnd): void {
+    $normalizeTime = function (string $value): string {
+        $trimmed = trim($value);
+
+        if (strlen($trimmed) === 5) {
+            return $trimmed.':00';
+        }
+
+        return substr($trimmed, 0, 8);
+    };
+
+    $activeAvailabilities = MentorAvailability::query()
+        ->where('mentor_id', $mentorId)
+        ->where('is_active', true)
+        ->get(['day_of_week', 'start_time', 'end_time']);
+
+    $cursor = $windowStart->copy()->startOfDay();
+    $endDate = $windowEnd->copy()->startOfDay();
+
+    while ($cursor->lte($endDate)) {
+        $dateKey = $cursor->toDateString();
+        $dayOfWeek = strtolower($cursor->englishDayOfWeek);
+
+        $expectedKeys = [];
+
+        $dayAvailabilities = $activeAvailabilities
+            ->filter(fn (MentorAvailability $availability): bool => strtolower((string) $availability->day_of_week) === $dayOfWeek)
+            ->values();
+
+        foreach ($dayAvailabilities as $availability) {
+            try {
+                $slotStartCursor = Carbon::createFromFormat('H:i:s', $normalizeTime((string) $availability->start_time));
+                $slotEndBoundary = Carbon::createFromFormat('H:i:s', $normalizeTime((string) $availability->end_time));
+            } catch (\Throwable $exception) {
+                continue;
+            }
+
+            while ($slotStartCursor->lt($slotEndBoundary)) {
+                $slotEnd = $slotStartCursor->copy()->addHour();
+                if ($slotEnd->gt($slotEndBoundary)) {
+                    break;
+                }
+
+                $startTime = $slotStartCursor->format('H:i:s');
+                $endTime = $slotEnd->format('H:i:s');
+                $expectedKeys[] = $startTime.'|'.$endTime;
+
+                TimeSlot::query()->firstOrCreate(
+                    [
+                        'mentor_id' => $mentorId,
+                        'date' => $dateKey,
+                        'start_time' => $startTime,
+                        'end_time' => $endTime,
+                    ],
+                    [
+                        'status' => 'available',
+                    ]
+                );
+
+                $slotStartCursor->addHour();
+            }
+        }
+
+        $availableSlots = TimeSlot::query()
+            ->where('mentor_id', $mentorId)
+            ->whereDate('date', $dateKey)
+            ->where('status', 'available')
+            ->get(['id', 'start_time', 'end_time']);
+
+        foreach ($availableSlots as $slot) {
+            $slotKey = (string) $slot->start_time.'|'.(string) $slot->end_time;
+            if (! in_array($slotKey, $expectedKeys, true)) {
+                $slot->delete();
+            }
+        }
+
+        $cursor->addDay();
+    }
+}
+}
+
 $resolvePortalDestination = function (User $user, Request $request) {
     $role = $user->role instanceof UserRole
         ? $user->role->value
@@ -86,7 +169,7 @@ $resolvePortalDestination = function (User $user, Request $request) {
     $request->session()->forget(['portal_user_id', 'portal_selected_role']);
 
     return redirect()->route('login')->withErrors([
-        'auth' => 'Only student and mentor accounts can continue here.',
+        'auth' => 'Only mentee and mentor accounts can continue here.',
     ]);
 };
 
@@ -122,7 +205,7 @@ Route::get('/', function () {
     $defaultAnnouncements = [
         [
             'title' => 'Mentorship Week Registration Open',
-            'message' => 'Students can now reserve mentorship week sessions through the Student Portal.',
+            'message' => 'Mentees can now reserve mentorship week sessions through the Mentee Portal.',
             'date' => '2026-03-02',
             'type' => 'Campaign',
         ],
@@ -141,8 +224,14 @@ Route::get('/', function () {
     ];
 
     $announcements = $defaultAnnouncements;
+    $announcements = collect($announcements)
+        ->filter(fn (array $announcement): bool => (string) ($announcement['date'] ?? '') >= $today)
+        ->values()
+        ->all();
+
     if (Schema::hasTable('announcements')) {
         $dbAnnouncements = Announcement::query()
+            ->whereDate('published_on', '>=', $today)
             ->orderByDesc('published_on')
             ->orderByDesc('id')
             ->limit(10)
@@ -186,8 +275,27 @@ Route::get('/', function () {
         ],
     ];
 
+    $centreEvents = collect($centreEvents)
+        ->filter(function (array $event): bool {
+            if (empty($event['date'])) {
+                return false;
+            }
+
+            $eventDateTime = Carbon::parse($event['date'].' '.($event['time'] ?? '00:00'));
+            return $eventDateTime->gte(now());
+        })
+        ->values()
+        ->all();
+
     if (Schema::hasTable('centre_events')) {
         $dbCentreEvents = CentreEvent::query()
+            ->where(function ($query) {
+                $query->whereDate('event_date', '>', now()->toDateString())
+                    ->orWhere(function ($sameDayQuery) {
+                        $sameDayQuery->whereDate('event_date', now()->toDateString())
+                            ->whereTime('event_time', '>=', now()->format('H:i:s'));
+                    });
+            })
             ->orderBy('event_date')
             ->orderBy('event_time')
             ->limit(20)
@@ -298,6 +406,7 @@ Route::post('/register', function (Request $request) use ($resolvePortalDestinat
         'password' => ['required', 'string', 'min:8', 'confirmed'],
         'role' => ['required', 'in:student,mentor'],
         'faculty' => ['nullable', 'string', 'max:255', 'required_if:role,mentor'],
+        'profile_photo' => ['nullable', 'image', 'max:4096', 'required_if:role,mentor'],
     ]);
 
     $mentorVerificationEnabled = Schema::hasColumn('users', 'mentor_verified_at');
@@ -314,6 +423,10 @@ Route::post('/register', function (Request $request) use ($resolvePortalDestinat
         $payload['mentor_verified_at'] = $validated['role'] === 'mentor' ? null : now();
     }
 
+    if ($request->hasFile('profile_photo')) {
+        $payload['profile_photo_path'] = $request->file('profile_photo')->store('mentor-photos', 'public');
+    }
+
     $user = User::query()->create($payload);
 
     $request->session()->regenerate();
@@ -326,6 +439,7 @@ Route::post('/register', function (Request $request) use ($resolvePortalDestinat
 
     if ($role === 'mentor') {
         $syncMentorDefaultAvailabilities((int) $user->id);
+        syncMentorSlotsFromAvailability((int) $user->id, now(), now()->copy()->addDays(5));
     }
 
     return $resolvePortalDestination($user, $request)->with('status', 'Account created successfully.');
@@ -385,7 +499,7 @@ Route::post('/reset-password', function (Request $request) {
 })->name('password.update');
 
 Route::get('/auth/{provider}/redirect', function (string $provider) {
-    if (! in_array($provider, ['google', 'github'], true)) {
+    if (! in_array($provider, ['google', 'facebook'], true)) {
         abort(404);
     }
 
@@ -403,7 +517,7 @@ Route::get('/auth/{provider}/redirect', function (string $provider) {
 })->name('oauth.redirect');
 
 Route::get('/auth/{provider}/callback', function (string $provider, Request $request) use ($resolvePortalDestination) {
-    if (! in_array($provider, ['google', 'github'], true)) {
+    if (! in_array($provider, ['google', 'facebook'], true)) {
         abort(404);
     }
 
@@ -477,10 +591,16 @@ Route::get('/student', function (Request $request) {
     $portalUser = $request->attributes->get('portal_user');
     $selectedStudentId = (int) $portalUser->id;
 
-    $mentors = User::query()
-        ->where('role', 'mentor')
+    $mentorQuery = User::query()
+        ->where('role', 'mentor');
+
+    if (Schema::hasColumn('users', 'mentor_verified_at')) {
+        $mentorQuery->whereNotNull('mentor_verified_at');
+    }
+
+    $mentors = $mentorQuery
         ->orderBy('name')
-        ->get(['id', 'name', 'email', 'faculty']);
+        ->get(['id', 'name', 'email', 'faculty', 'profile_photo_path']);
 
     if ($selectedMentorId && ! $mentors->contains('id', $selectedMentorId)) {
         $selectedMentorId = null;
@@ -492,17 +612,11 @@ Route::get('/student', function (Request $request) {
 
     $mentorIds = $mentors->pluck('id');
 
-    $availabilityQuery = MentorAvailability::query()
+    $allAvailabilitiesByMentor = MentorAvailability::query()
         ->whereIn('mentor_id', $mentorIds)
-        ->where('is_active', true)
         ->orderBy('day_of_week')
-        ->orderBy('start_time');
-
-    if ($selectedMentorId) {
-        $availabilityQuery->where('mentor_id', $selectedMentorId);
-    }
-
-    $availabilitiesByMentor = $availabilityQuery->get([
+        ->orderBy('start_time')
+        ->get([
         'id',
         'mentor_id',
         'day_of_week',
@@ -511,19 +625,14 @@ Route::get('/student', function (Request $request) {
         'is_active',
     ])->groupBy('mentor_id');
 
-    $currentDayOfWeek = strtolower(now()->englishDayOfWeek);
-    $currentTime = now()->format('H:i:s');
+    $availabilitiesByMentor = $allAvailabilitiesByMentor
+        ->map(fn ($rows) => $rows->where('is_active', true)->values());
 
     $mentorLiveStatus = $mentors
-        ->mapWithKeys(function (User $mentor) use ($availabilitiesByMentor, $currentDayOfWeek, $currentTime): array {
-            $isAvailableNow = $availabilitiesByMentor
+        ->mapWithKeys(function (User $mentor) use ($allAvailabilitiesByMentor): array {
+            $isAvailableNow = $allAvailabilitiesByMentor
                 ->get($mentor->id, collect())
-                ->contains(function ($availability) use ($currentDayOfWeek, $currentTime): bool {
-                    return (bool) $availability->is_active
-                        && strtolower((string) $availability->day_of_week) === $currentDayOfWeek
-                        && (string) $availability->start_time <= $currentTime
-                        && (string) $availability->end_time >= $currentTime;
-                });
+                ->contains(fn ($availability): bool => (bool) $availability->is_active);
 
             return [$mentor->id => $isAvailableNow];
         });
@@ -531,43 +640,14 @@ Route::get('/student', function (Request $request) {
     $slotWindowStart = now()->toDateString();
     $slotWindowEnd = now()->copy()->addDays(5)->toDateString();
 
-    $slotDatesInWindow = collect(range(0, 5))
-        ->map(fn (int $offset) => now()->copy()->addDays($offset))
-        ->filter(fn (Carbon $date) => in_array(strtolower($date->englishDayOfWeek), ['tuesday', 'thursday'], true))
-        ->values();
-
     foreach ($mentorIds as $mentorId) {
-        foreach ($slotDatesInWindow as $slotDate) {
-            TimeSlot::query()->firstOrCreate(
-                [
-                    'mentor_id' => (int) $mentorId,
-                    'date' => $slotDate->toDateString(),
-                    'start_time' => '09:00:00',
-                    'end_time' => '15:00:00',
-                ],
-                [
-                    'status' => 'available',
-                ]
-            );
-
-            TimeSlot::query()
-                ->where('mentor_id', (int) $mentorId)
-                ->whereDate('date', $slotDate->toDateString())
-                ->where('status', 'available')
-                ->where(function ($query) {
-                    $query->where('start_time', '!=', '09:00:00')
-                        ->orWhere('end_time', '!=', '15:00:00');
-                })
-                ->delete();
-        }
+        syncMentorSlotsFromAvailability((int) $mentorId, now(), now()->copy()->addDays(5));
     }
 
     $slotQuery = TimeSlot::query()
         ->whereIn('mentor_id', $mentorIds)
         ->where('status', 'available')
         ->whereBetween('date', [$slotWindowStart, $slotWindowEnd])
-        ->where('start_time', '09:00:00')
-        ->where('end_time', '15:00:00')
         ->orderBy('date')
         ->orderBy('start_time');
 
@@ -640,8 +720,17 @@ Route::post('/student/book-slot', function (Request $request) {
             }
 
             $dayOfWeek = strtolower(Carbon::parse($slot->date)->englishDayOfWeek);
-            if (! in_array($dayOfWeek, ['tuesday', 'thursday'], true)) {
-                throw new \RuntimeException('Appointments are only allowed on Tuesday or Thursday slots.');
+
+            $slotMatchesAvailability = MentorAvailability::query()
+                ->where('mentor_id', $slot->mentor_id)
+                ->where('is_active', true)
+                ->where('day_of_week', $dayOfWeek)
+                ->where('start_time', '<=', $slot->start_time)
+                ->where('end_time', '>=', $slot->end_time)
+                ->exists();
+
+            if (! $slotMatchesAvailability) {
+                throw new \RuntimeException('Selected slot is outside the mentor\'s active availability.');
             }
 
             $hasExistingSameDay = Appointment::query()
@@ -652,7 +741,7 @@ Route::post('/student/book-slot', function (Request $request) {
                 ->exists();
 
             if ($hasExistingSameDay) {
-                throw new \RuntimeException('This student already has an appointment on the selected date.');
+                throw new \RuntimeException('This mentee already has an appointment on the selected date.');
             }
 
             $slotAlreadyHasAppointment = Appointment::query()
@@ -693,6 +782,8 @@ Route::get('/mentor', function (Request $request) {
         ->orderBy('day_of_week')
         ->orderBy('start_time')
         ->get(['id', 'mentor_id', 'day_of_week', 'start_time', 'end_time', 'is_active']);
+
+    $mentorIsAvailableNow = $mentorAvailabilities->contains(fn ($availability): bool => (bool) $availability->is_active);
 
     $monthInput = (string) $request->query('month', now()->format('Y-m'));
     if (! preg_match('/^\d{4}-\d{2}$/', $monthInput)) {
@@ -775,6 +866,16 @@ Route::get('/mentor', function (Request $request) {
 
     $totalSessionsThisMonth = $monthlyAppointments->count();
 
+    $groupSessions = collect();
+    if (Schema::hasTable('centre_events')) {
+        $groupSessions = CentreEvent::query()
+            ->where('is_group_session', true)
+            ->where('mentor_id', $mentor->id)
+            ->orderBy('event_date')
+            ->orderBy('event_time')
+            ->get(['id', 'title', 'category', 'event_date', 'event_time', 'venue']);
+    }
+
     return view('mentor.index', [
         'currentNav' => 'mentor',
         'portal' => 'mentor',
@@ -785,6 +886,7 @@ Route::get('/mentor', function (Request $request) {
         ],
         'mentor' => $mentor,
         'mentorAvailabilities' => $mentorAvailabilities,
+        'mentorIsAvailableNow' => $mentorIsAvailableNow,
         'currentMonthLabel' => $currentMonth->format('F Y'),
         'currentMonthValue' => $currentMonth->format('Y-m'),
         'previousMonthValue' => $currentMonth->copy()->subMonthNoOverflow()->format('Y-m'),
@@ -793,10 +895,11 @@ Route::get('/mentor', function (Request $request) {
         'upcomingSessions' => $upcomingSessions,
         'statusSummary' => $statusSummary,
         'totalSessionsThisMonth' => $totalSessionsThisMonth,
+        'groupSessions' => $groupSessions,
     ]);
 })->middleware(['portal.session', 'portal.role:mentor'])->name('mentor.index');
 
-Route::post('/mentor/availability/{id}/status', function (Request $request, int $id) {
+    Route::post('/mentor/availability/{id}/status', function (Request $request, int $id) {
     $validated = $request->validate([
         'is_active' => ['required', 'boolean'],
     ]);
@@ -818,8 +921,39 @@ Route::post('/mentor/availability/{id}/status', function (Request $request, int 
         'is_active' => (bool) $validated['is_active'],
     ]);
 
+    syncMentorSlotsFromAvailability((int) $mentor->id, now(), now()->copy()->addDays(5));
+
     return redirect()->route('mentor.index')->with('status', 'Availability status updated.');
 })->middleware(['portal.session', 'portal.role:mentor'])->name('mentor.availability.status');
+
+Route::post('/mentor/group-sessions', function (Request $request) {
+    if (! Schema::hasTable('centre_events')) {
+        return redirect()->route('mentor.index')->withErrors([
+            'group_sessions' => 'Events table not found. Please run migrations first.',
+        ]);
+    }
+
+    $mentor = $request->attributes->get('portal_user');
+
+    $validated = $request->validate([
+        'title' => ['required', 'string', 'max:255'],
+        'event_date' => ['required', 'date'],
+        'event_time' => ['required', 'date_format:H:i'],
+        'venue' => ['required', 'string', 'max:255'],
+    ]);
+
+    CentreEvent::query()->create([
+        'mentor_id' => (int) $mentor->id,
+        'title' => $validated['title'],
+        'category' => 'Group Session',
+        'is_group_session' => true,
+        'event_date' => $validated['event_date'],
+        'event_time' => $validated['event_time'],
+        'venue' => $validated['venue'],
+    ]);
+
+    return redirect()->route('mentor.index')->with('status', 'Group session event created.');
+})->middleware(['portal.session', 'portal.role:mentor'])->name('mentor.group-sessions.store');
 
 Route::post('/mentor/appointments/{id}/confirm', function (Request $request, int $id) {
     $mentor = $request->attributes->get('portal_user');
@@ -875,6 +1009,14 @@ Route::get('/admin/login', function () {
     ]);
 })->name('admin.login');
 
+Route::get('/admin/logout', function (Request $request) {
+    $request->session()->forget('admin_user_id');
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    return redirect()->route('admin.login')->with('status', 'Signed out successfully.');
+})->name('admin.logout.get');
+
 Route::post('/admin/login', function (Request $request) {
     $validated = $request->validate([
         'email' => ['required', 'email'],
@@ -921,12 +1063,13 @@ Route::middleware('admin.session')->group(function () use ($syncMentorDefaultAva
 
         foreach ($mentorIds as $mentorId) {
             $syncMentorDefaultAvailabilities((int) $mentorId);
+            syncMentorSlotsFromAvailability((int) $mentorId, now(), now()->copy()->addDays(5));
         }
 
         $mentors = User::query()
             ->where('role', 'mentor')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'faculty', 'created_at']);
+            ->get(['id', 'name', 'email', 'faculty', 'profile_photo_path', 'created_at']);
 
         $pendingMentorVerifications = collect();
         if ($mentorVerificationEnabled) {
@@ -994,15 +1137,7 @@ Route::middleware('admin.session')->group(function () use ($syncMentorDefaultAva
         return view('admin.index', [
             'currentNav' => 'admin',
             'portal' => 'admin',
-            'sidebarTitle' => 'Admin Modules',
-            'sidebarItems' => [
-                ['label' => 'Mentors', 'route' => route('admin.index'), 'active' => true],
-                ['label' => 'Availability', 'route' => route('admin.index'), 'active' => false],
-                ['label' => 'Slot Generation', 'route' => route('admin.index'), 'active' => false],
-                ['label' => 'Reports', 'route' => route('admin.index'), 'active' => false],
-                ['label' => 'Ops', 'route' => route('admin.index'), 'active' => false],
-                ['label' => 'Alerts', 'route' => route('admin.index'), 'active' => false],
-            ],
+            'sidebarItems' => [],
             'adminUser' => $adminUser,
             'mentors' => $mentors,
             'mentorVerificationEnabled' => $mentorVerificationEnabled,
@@ -1014,6 +1149,57 @@ Route::middleware('admin.session')->group(function () use ($syncMentorDefaultAva
             'centreEvents' => $centreEvents,
         ]);
     })->name('admin.index');
+
+    Route::post('/admin/appointments/{id}/approve', function (int $id) {
+        $appointment = Appointment::query()
+            ->with('timeSlot')
+            ->find($id);
+
+        if (! $appointment) {
+            return redirect()->route('admin.index')->withErrors([
+                'appointment' => 'Appointment not found.',
+            ]);
+        }
+
+        if ($appointment->status !== 'pending') {
+            return redirect()->route('admin.index')->withErrors([
+                'appointment' => 'Only pending appointments can be approved.',
+            ]);
+        }
+
+        $appointment->update([
+            'status' => 'confirmed',
+        ]);
+
+        if ($appointment->timeSlot && $appointment->timeSlot->status === 'available') {
+            $appointment->timeSlot->update(['status' => 'booked']);
+        }
+
+        return redirect()->route('admin.index')->with('status', 'Appointment approved.');
+    })->name('admin.appointments.approve');
+
+    Route::get('/admin/appointments/{id}', function (int $id) {
+        $appointment = Appointment::query()
+            ->with([
+                'student:id,name,email',
+                'mentor:id,name,email',
+                'timeSlot:id,date,start_time,end_time,status',
+            ])
+            ->find($id);
+
+        if (! $appointment) {
+            return redirect()->route('admin.index')->withErrors([
+                'appointment' => 'Appointment not found.',
+            ]);
+        }
+
+        return view('admin.appointment-show', [
+            'currentNav' => 'admin',
+            'portal' => 'admin',
+            'sidebarItems' => [],
+            'appointment' => $appointment,
+        ]);
+    })->name('admin.appointments.show');
 
     Route::post('/admin/centre-events', function (Request $request) {
         if (! Schema::hasTable('centre_events')) {
@@ -1150,6 +1336,7 @@ Route::middleware('admin.session')->group(function () use ($syncMentorDefaultAva
         $mentor = User::query()->create($payload);
 
         $syncMentorDefaultAvailabilities((int) $mentor->id);
+        syncMentorSlotsFromAvailability((int) $mentor->id, now(), now()->copy()->addDays(5));
 
         return redirect()->route('admin.index')->with('status', 'Mentor created successfully.');
     })->name('admin.mentors.store');
@@ -1173,6 +1360,7 @@ Route::middleware('admin.session')->group(function () use ($syncMentorDefaultAva
         }
 
         $syncMentorDefaultAvailabilities((int) $validated['mentor_id']);
+        syncMentorSlotsFromAvailability((int) $validated['mentor_id'], now(), now()->copy()->addDays(5));
 
         return redirect()->route('admin.index')->with('status', 'Default mentor availability applied: Tuesday/Thursday · 09:00 - 15:00.');
     })->name('admin.availability.store');
@@ -1198,6 +1386,8 @@ Route::middleware('admin.session')->group(function () use ($syncMentorDefaultAva
             'is_active' => (bool) ($validated['is_active'] ?? false),
         ]);
 
+        syncMentorSlotsFromAvailability((int) $availability->mentor_id, now(), now()->copy()->addDays(5));
+
         return redirect()->route('admin.index')->with('status', 'Availability updated.');
     })->name('admin.availability.update');
 
@@ -1208,7 +1398,10 @@ Route::middleware('admin.session')->group(function () use ($syncMentorDefaultAva
             return redirect()->route('admin.index')->withErrors(['availability' => 'Availability entry not found.']);
         }
 
+        $mentorId = (int) $availability->mentor_id;
         $availability->delete();
+
+        syncMentorSlotsFromAvailability($mentorId, now(), now()->copy()->addDays(5));
 
         return redirect()->route('admin.index')->with('status', 'Availability deleted.');
     })->name('admin.availability.delete');

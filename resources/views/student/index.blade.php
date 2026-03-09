@@ -1,14 +1,19 @@
 @extends('layouts.app')
 
-@section('title', 'Student Portal | UMP Mentorship Portal')
+@section('title', 'Mentee Portal | UMP Mentorship Portal')
 
 @section('content')
-    <x-ui.page-header title="Student Portal" subtitle="View mentors, check availability, and book a mentorship slot." />
+    <x-ui.page-header title="Mentee Portal" subtitle="View mentors, check availability, and book a mentorship slot." />
 
     @if (session('status'))
-        <x-ui.card class="border-green-200 bg-green-50">
+        <div
+            id="status-toast"
+            class="fixed right-4 top-4 z-50 max-w-sm rounded-lg border border-green-200 bg-green-50 px-4 py-3 shadow-lg transition-opacity duration-500"
+            role="status"
+            aria-live="polite"
+        >
             <p class="text-sm font-medium text-green-800">{{ session('status') }}</p>
-        </x-ui.card>
+        </div>
     @endif
 
     @if ($errors->any())
@@ -32,8 +37,17 @@
                         href="{{ route('student.index', ['mentor_id' => $mentor->id]) }}"
                         class="ump-focusable block rounded-md border px-3 py-2 text-sm transition {{ $selectedMentorId === $mentor->id ? 'border-[var(--ump-accent-gold)] bg-[var(--ump-accent-gold)]/20 text-[var(--ump-text-dark)] font-semibold' : 'border-[var(--ump-border)] text-[var(--ump-text-dark)] hover:bg-[var(--ump-page-gray)]' }}"
                     >
-                        <div class="flex items-center justify-between gap-2">
-                            <p>{{ $mentor->name }}</p>
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                @if (!empty($mentor->profile_photo_path))
+                                    <img src="{{ Storage::url($mentor->profile_photo_path) }}" alt="{{ $mentor->name }} profile" class="h-10 w-10 rounded-full border border-[var(--ump-border)] object-cover">
+                                @else
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--ump-border)] bg-[var(--ump-page-gray)] text-xs font-semibold text-[var(--ump-primary-navy)]">
+                                        {{ strtoupper(substr($mentor->name, 0, 1)) }}
+                                    </div>
+                                @endif
+                                <p>{{ $mentor->name }}</p>
+                            </div>
                             <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $isMentorAvailable ? 'bg-green-700 text-white' : 'border border-green-700 bg-white text-green-700' }}">
                                 {{ $isMentorAvailable ? 'Available' : 'Unavailable' }}
                             </span>
@@ -76,7 +90,16 @@
                 </div>
 
                 <div class="mb-3 rounded-md border border-[var(--ump-border)] bg-[var(--ump-page-gray)] px-3 py-2">
-                    <p class="text-sm font-semibold text-[var(--ump-primary-navy)]">{{ $selectedMentor->name }}</p>
+                    <div class="flex items-center gap-3">
+                        @if (!empty($selectedMentor->profile_photo_path))
+                            <img src="{{ Storage::url($selectedMentor->profile_photo_path) }}" alt="{{ $selectedMentor->name }} profile" class="h-12 w-12 rounded-full border border-[var(--ump-border)] object-cover">
+                        @else
+                            <div class="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--ump-border)] bg-white text-sm font-semibold text-[var(--ump-primary-navy)]">
+                                {{ strtoupper(substr($selectedMentor->name, 0, 1)) }}
+                            </div>
+                        @endif
+                        <p class="text-sm font-semibold text-[var(--ump-primary-navy)]">{{ $selectedMentor->name }}</p>
+                    </div>
                     <p class="text-xs ump-muted">Faculty: {{ $selectedMentor->faculty ?: 'Not specified' }}</p>
                     <p class="text-xs ump-muted">{{ $selectedMentor->email }}</p>
                 </div>
@@ -101,54 +124,48 @@
                     @if ($mentorSlots->isEmpty())
                         <p class="text-sm ump-muted">No open slots available right now.</p>
                     @else
-                        <div class="overflow-x-auto">
-                            <table class="ump-table min-w-[620px]">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Day</th>
-                                        <th>Start</th>
-                                        <th>End</th>
-                                        <th>Appointment Subject</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($mentorSlots->take(8) as $slot)
-                                        <tr>
-                                            <td>{{ \Carbon\Carbon::parse($slot->date)->format('Y-m-d') }}</td>
-                                            <td>{{ \Carbon\Carbon::parse($slot->date)->format('l') }}</td>
-                                            <td>{{ \Carbon\Carbon::parse($slot->start_time)->format('H:i') }}</td>
-                                            <td>{{ \Carbon\Carbon::parse($slot->end_time)->format('H:i') }}</td>
-                                            <td>
-                                                <input
-                                                    type="text"
-                                                    name="appointment_subject"
-                                                    value="{{ old('appointment_subject') }}"
-                                                    placeholder="Brief subject"
-                                                    class="ump-focusable w-full min-w-[180px] rounded-md border border-[var(--ump-border)] bg-white px-2 py-1.5 text-xs"
-                                                    form="book-slot-{{ $slot->id }}"
-                                                    maxlength="255"
-                                                    required
-                                                >
-                                            </td>
-                                            <td>
-                                                <form id="book-slot-{{ $slot->id }}" method="POST" action="{{ route('student.book-slot') }}" class="inline-flex gap-2">
-                                                    @csrf
-                                                    <input type="hidden" name="time_slot_id" value="{{ $slot->id }}">
-                                                    <input type="hidden" name="mentor_id" value="{{ $selectedMentorId }}">
-                                                    <x-ui.button type="submit" class="!px-3 !py-1.5 !text-xs" :disabled="! $selectedStudentId">
-                                                        Make Appointment
-                                                    </x-ui.button>
-                                                </form>
-                                            </td>
-                                        </tr>
+                        <form method="POST" action="{{ route('student.book-slot') }}" class="grid gap-3 rounded-md border border-[var(--ump-border)] bg-white p-3 sm:grid-cols-[1.6fr,1fr,auto] sm:items-end">
+                            @csrf
+                            <input type="hidden" name="mentor_id" value="{{ $selectedMentorId }}">
+
+                            <div>
+                                <label for="time_slot_id" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Select Time Slot</label>
+                                <select
+                                    id="time_slot_id"
+                                    name="time_slot_id"
+                                    class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm"
+                                    required
+                                >
+                                    <option value="" disabled {{ old('time_slot_id') ? '' : 'selected' }}>Choose a slot...</option>
+                                    @foreach ($mentorSlots->take(20) as $slot)
+                                        <option value="{{ $slot->id }}" {{ (string) old('time_slot_id') === (string) $slot->id ? 'selected' : '' }}>
+                                            {{ \Carbon\Carbon::parse($slot->date)->format('Y-m-d') }} ({{ \Carbon\Carbon::parse($slot->date)->format('D') }}) - {{ \Carbon\Carbon::parse($slot->start_time)->format('H:i') }} to {{ \Carbon\Carbon::parse($slot->end_time)->format('H:i') }}
+                                        </option>
                                     @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="appointment_subject" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Appointment Subject</label>
+                                <input
+                                    id="appointment_subject"
+                                    type="text"
+                                    name="appointment_subject"
+                                    value="{{ old('appointment_subject') }}"
+                                    placeholder="Brief subject"
+                                    class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm"
+                                    maxlength="255"
+                                    required
+                                >
+                            </div>
+
+                            <x-ui.button type="submit" class="w-full sm:w-auto" :disabled="! $selectedStudentId">
+                                Make Appointment
+                            </x-ui.button>
+                        </form>
+                        <p class="mt-2 text-xs ump-muted">Showing up to 20 upcoming available slots for the selected mentor.</p>
                         @if (! $selectedStudentId)
-                            <p class="mt-2 text-xs text-amber-700">No student account is currently available for booking.</p>
+                            <p class="mt-2 text-xs text-amber-700">No mentee account is currently available for booking.</p>
                         @endif
                     @endif
                 </div>
@@ -156,9 +173,9 @@
         </x-ui.card>
     </div>
 
-    <x-ui.card id="my-appointments" title="My Appointments" subtitle="Booked sessions for the selected student.">
+    <x-ui.card id="my-appointments" title="My Appointments" subtitle="Booked sessions for the selected mentee.">
         @if (! $selectedStudentId)
-            <p class="text-sm ump-muted">No student account found to display appointments.</p>
+            <p class="text-sm ump-muted">No mentee account found to display appointments.</p>
         @else
             <div class="overflow-x-auto">
                 <table class="ump-table min-w-[640px]">
@@ -186,7 +203,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="ump-muted">No appointments found for this student.</td>
+                                <td colspan="4" class="ump-muted">No appointments found for this mentee.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -194,4 +211,24 @@
             </div>
         @endif
     </x-ui.card>
+
+    @if (session('status'))
+        <script>
+            (function () {
+                const toast = document.getElementById('status-toast');
+
+                if (!toast) {
+                    return;
+                }
+
+                setTimeout(function () {
+                    toast.classList.add('opacity-0');
+
+                    setTimeout(function () {
+                        toast.remove();
+                    }, 500);
+                }, 4000);
+            })();
+        </script>
+    @endif
 @endsection

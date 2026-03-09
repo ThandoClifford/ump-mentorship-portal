@@ -4,8 +4,6 @@
 
 @section('content')
     @php
-        $openMentorForm = old('name') || old('email') || old('password') || old('faculty');
-        $openAvailabilityForm = old('mentor_id') || old('day_of_week') || old('start_time') || old('end_time');
         $openAnnouncementForm = old('title') || old('type') || old('message') || old('published_on');
         $openCentreEventForm = old('event_title') || old('event_category') || old('event_date') || old('event_time') || old('event_venue');
     @endphp
@@ -28,7 +26,7 @@
         </x-ui.card>
     @endif
 
-    <x-ui.card title="Admin Overview" subtitle="Quick summary of portal operations.">
+    <x-ui.card id="admin-overview" title="Admin Overview" subtitle="Quick summary of portal operations.">
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div class="rounded-md border border-[var(--ump-border)] bg-white p-3">
                 <p class="text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Mentors</p>
@@ -49,7 +47,7 @@
         </div>
     </x-ui.card>
 
-    <x-ui.card title="Mentors Waiting Verification" subtitle="Approve mentor profiles before they can access the mentor portal.">
+    <x-ui.card id="mentor-verification" title="Mentors Waiting Verification" subtitle="Approve mentor profiles before they can access the mentor portal.">
         @if (! ($mentorVerificationEnabled ?? false))
             <div class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 Mentor verification schema is not applied yet. Run migrations to enable this feature.
@@ -73,96 +71,7 @@
         </div>
     </x-ui.card>
 
-    <div class="grid gap-4 lg:grid-cols-2">
-        <x-ui.card title="Forms" subtitle="Click to open and complete admin actions.">
-            <div class="space-y-3">
-                <details class="rounded-md border border-[var(--ump-border)] bg-white p-3" @if($openMentorForm) open @endif>
-                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-[var(--ump-primary-navy)]">
-                        <span>Add Mentor</span>
-                        <span class="rounded-full bg-[var(--ump-page-gray)] px-2 py-0.5 text-xs text-[var(--ump-text-dark)]">Click</span>
-                    </summary>
-                    <form method="POST" action="{{ route('admin.mentors.store') }}" class="mt-3 grid gap-3 border-t border-[var(--ump-border)] pt-3">
-                        @csrf
-                        <div>
-                            <label for="mentor_name" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Full Name</label>
-                            <input id="mentor_name" name="name" type="text" value="{{ old('name') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
-                        </div>
-                        <div>
-                            <label for="mentor_email" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Email</label>
-                            <input id="mentor_email" name="email" type="email" value="{{ old('email') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
-                        </div>
-                        <div>
-                            <label for="mentor_password" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Password</label>
-                            <input id="mentor_password" name="password" type="password" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" minlength="8" required>
-                        </div>
-                        <div>
-                            <label for="mentor_faculty" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Faculty</label>
-                            <input id="mentor_faculty" name="faculty" type="text" value="{{ old('faculty') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
-                        </div>
-                        <div>
-                            <x-ui.button type="submit">Add Mentor</x-ui.button>
-                        </div>
-                    </form>
-                </details>
-
-                <details class="rounded-md border border-[var(--ump-border)] bg-white p-3" @if($openAvailabilityForm) open @endif>
-                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-[var(--ump-primary-navy)]">
-                        <span>Add Availability</span>
-                        <span class="rounded-full bg-[var(--ump-page-gray)] px-2 py-0.5 text-xs text-[var(--ump-text-dark)]">Click</span>
-                    </summary>
-                    <form method="POST" action="{{ route('admin.availability.store') }}" class="mt-3 grid gap-3 border-t border-[var(--ump-border)] pt-3">
-                        @csrf
-                        <div>
-                            <label for="availability_mentor" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Mentor</label>
-                            <select id="availability_mentor" name="mentor_id" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
-                                <option value="">Select mentor</option>
-                                @foreach ($mentors as $mentor)
-                                    <option value="{{ $mentor->id }}" @selected((string) old('mentor_id') === (string) $mentor->id)>{{ $mentor->name }} ({{ $mentor->email }})</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="grid gap-3 sm:grid-cols-3">
-                            <div>
-                                <label for="availability_day" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Day</label>
-                                <select id="availability_day" name="day_of_week" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
-                                    @foreach (['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as $day)
-                                        <option value="{{ $day }}" @selected(old('day_of_week', 'monday') === $day)>{{ ucfirst($day) }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label for="availability_start" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Start</label>
-                                <input id="availability_start" name="start_time" type="time" value="{{ old('start_time') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
-                            </div>
-                            <div>
-                                <label for="availability_end" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">End</label>
-                                <input id="availability_end" name="end_time" type="time" value="{{ old('end_time') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Status</label>
-                            <div class="flex flex-wrap gap-2">
-                                <label class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm">
-                                    <input type="radio" name="is_active" value="1" @checked((string) old('is_active', '1') === '1')>
-                                    Available
-                                </label>
-                                <label class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm">
-                                    <input type="radio" name="is_active" value="0" @checked((string) old('is_active') === '0')>
-                                    Unavailable
-                                </label>
-                            </div>
-                        </div>
-                        <div>
-                            <x-ui.button type="submit">Add Availability</x-ui.button>
-                        </div>
-                    </form>
-                </details>
-            </div>
-        </x-ui.card>
-
-    </div>
-
-    <x-ui.card title="Mentors and Availability" subtitle="Manage existing mentors and edit their availability windows.">
+    <x-ui.card id="mentors-availability" title="Mentors and Availability" subtitle="Manage existing mentors and edit their availability windows.">
         <div class="space-y-5">
             @forelse ($mentors as $mentor)
                 @php
@@ -231,12 +140,12 @@
         </div>
     </x-ui.card>
 
-    <x-ui.card title="Upcoming Appointments" subtitle="Admin-only scheduling overview.">
+    <x-ui.card id="upcoming-appointments" title="Upcoming Appointments" subtitle="Admin-only scheduling overview.">
         <div class="overflow-x-auto">
             <table class="ump-table min-w-[760px]">
                 <thead>
                     <tr>
-                        <th>Student</th>
+                        <th>Mentee</th>
                         <th>Mentor</th>
                         <th>Date</th>
                         <th>Time</th>
@@ -259,13 +168,20 @@
                             </td>
                             <td>{{ ucfirst($appointment->status) }}</td>
                             <td>
-                                @if ($appointment->status === 'pending')
-                                    <x-ui.button class="!px-3 !py-1.5 !text-xs">Approve</x-ui.button>
-                                @elseif ($appointment->status === 'rescheduled')
-                                    <x-ui.button variant="destructive" class="!px-3 !py-1.5 !text-xs">Cancel</x-ui.button>
-                                @else
-                                    <x-ui.button variant="secondary" class="!px-3 !py-1.5 !text-xs">View</x-ui.button>
-                                @endif
+                                <div class="flex flex-wrap gap-2">
+                                    @if ($appointment->status === 'pending')
+                                        <form method="POST" action="{{ route('admin.appointments.approve', $appointment->id) }}">
+                                            @csrf
+                                            <x-ui.button type="submit" class="!px-3 !py-1.5 !text-xs">Approve</x-ui.button>
+                                        </form>
+                                    @endif
+                                    <a
+                                        href="{{ route('admin.appointments.show', $appointment->id) }}"
+                                        class="ump-focusable inline-flex items-center justify-center rounded-md border border-[var(--ump-border)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--ump-text-dark)] transition hover:bg-[var(--ump-page-gray)]"
+                                    >
+                                        View
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -278,7 +194,7 @@
         </div>
     </x-ui.card>
 
-    <x-ui.card title="Announcements" subtitle="Latest admin notices.">
+    <x-ui.card id="announcements" title="Announcements" subtitle="Latest admin notices.">
         <details class="mb-4 rounded-md border border-[var(--ump-border)] bg-white p-3" @if($openAnnouncementForm) open @endif>
             <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-[var(--ump-primary-navy)]">
                 <span>Add Announcement</span>
@@ -329,7 +245,7 @@
         </div>
     </x-ui.card>
 
-    <x-ui.card title="Centre Events" subtitle="Manage events shown in Upcoming Centre Events on the home page.">
+    <x-ui.card id="centre-events" title="Centre Events" subtitle="Manage events shown in Upcoming Centre Events on the home page.">
         <details class="mb-4 rounded-md border border-[var(--ump-border)] bg-white p-3" @if($openCentreEventForm) open @endif>
             <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-[var(--ump-primary-navy)]">
                 <span>Add Centre Event</span>

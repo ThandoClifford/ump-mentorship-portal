@@ -9,9 +9,55 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-[var(--ump-page-gray)] font-sans text-[var(--ump-text-dark)]">
+    @php
+        $partners = [
+            ['file' => 'partner-standard-bank.png', 'label' => 'Standard Bank'],
+            ['file' => 'partner-sedfa.png', 'label' => 'SEDFA'],
+            ['file' => 'partner-old-mutual.png', 'label' => 'Old Mutual'],
+            ['file' => 'partner-absa.png', 'label' => 'ABSA'],
+            ['file' => 'partner-nyda.png', 'label' => 'NYDA'],
+        ];
+    @endphp
+
     <header class="border-b border-[var(--ump-border)] bg-[var(--ump-primary-navy)]">
-        <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
-            <p class="text-sm font-semibold text-[var(--ump-white)]">UMP UMPCFERI Mentorship Portal</p>
+        <div class="mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-3">
+            <a href="{{ route('dashboard') }}" class="ump-focusable inline-flex" aria-label="Go to home">
+                @if (file_exists(public_path('images/ump-logo.png')))
+                    <img src="{{ asset('images/ump-logo.png') }}" alt="University of Mpumalanga" class="h-14 w-auto rounded bg-white px-2 py-1 md:h-16">
+                @else
+                    <span class="text-sm font-semibold text-[var(--ump-white)]">UMP UMPCFERI Mentorship Portal</span>
+                @endif
+            </a>
+
+            <div class="ump-partner-marquee flex-1 bg-white py-0">
+                <div class="ump-partner-marquee-track">
+                    @foreach ([1, 2] as $copy)
+                        @if ($copy === 2)
+                            <div class="ump-partner-marquee-set" aria-hidden="true">
+                        @else
+                            <div class="ump-partner-marquee-set">
+                        @endif
+                            @foreach ($partners as $partner)
+                                @php
+                                    $path = 'images/'.$partner['file'];
+                                @endphp
+                                <div class="ump-partner-marquee-item">
+                                    @if (file_exists(public_path($path)))
+                                        <img
+                                            src="{{ asset($path) }}"
+                                            alt="{{ $partner['label'] }}"
+                                            class="h-10 w-auto md:h-12"
+                                        >
+                                    @else
+                                        <span class="rounded bg-[var(--ump-page-gray)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ump-text-dark)]">{{ $partner['label'] }}</span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
             <a href="{{ route('dashboard') }}" class="ump-btn ump-btn-primary ump-focusable px-3 py-2 text-sm">
                 Back to Home
             </a>

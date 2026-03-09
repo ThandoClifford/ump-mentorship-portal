@@ -23,6 +23,14 @@
 
     <div class="space-y-4">
         <x-ui.card title="My Availability Status" subtitle="Control your own availability windows.">
+            <div class="mb-3 rounded-md border border-[var(--ump-border)] bg-[var(--ump-page-gray)] px-3 py-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Current Status</p>
+                <p class="mt-1 text-sm font-semibold {{ ($mentorIsAvailableNow ?? false) ? 'text-green-700' : 'text-slate-600' }}">
+                    {{ ($mentorIsAvailableNow ?? false) ? 'Available' : 'Unavailable' }}
+                </p>
+                <p class="text-xs ump-muted">This is controlled by your Set Available or Set Unavailable buttons below.</p>
+            </div>
+
             <div class="space-y-2 text-sm">
                 @forelse (($mentorAvailabilities ?? collect()) as $availability)
                     <div class="rounded-md border border-[var(--ump-border)] p-3 sm:flex sm:items-center sm:justify-between sm:gap-3">
@@ -31,7 +39,7 @@
                                 {{ ucfirst($availability->day_of_week) }} · {{ \Carbon\Carbon::parse($availability->start_time)->format('H:i') }} - {{ \Carbon\Carbon::parse($availability->end_time)->format('H:i') }}
                             </p>
                             <p class="mt-1 text-xs uppercase tracking-wide {{ $availability->is_active ? 'text-green-700' : 'text-slate-500' }}">
-                                {{ $availability->is_active ? 'Available' : 'Unavailable' }}
+                                {{ $availability->is_active ? 'Window Enabled' : 'Window Disabled' }}
                             </p>
                         </div>
 
@@ -61,7 +69,7 @@
                             -
                             {{ optional($session->timeSlot)->end_time ? \Carbon\Carbon::parse($session->timeSlot->end_time)->format('H:i') : '-' }}
                         </p>
-                        <p class="mt-1">{{ optional($session->student)->name ?? 'Student' }}</p>
+                        <p class="mt-1">{{ optional($session->student)->name ?? 'Mentee' }}</p>
                         <p class="mt-1 text-xs ump-muted">Contact: {{ $session->student_contact_details ?: (optional($session->student)->email ?: 'Not provided') }}</p>
                         <p class="mt-1 text-xs ump-muted">Subject: {{ $session->appointment_subject ?: 'Not provided' }}</p>
                         <p class="mt-1 text-xs uppercase tracking-wide {{ $session->status === 'confirmed' ? 'text-green-700' : ($session->status === 'pending' ? 'text-amber-700' : 'text-sky-700') }}">
@@ -82,6 +90,48 @@
                     </div>
                 @empty
                     <p class="text-sm ump-muted">No upcoming sessions found.</p>
+                @endforelse
+            </div>
+        </x-ui.card>
+
+        <x-ui.card title="Events" subtitle="Create and manage mentor group sessions.">
+            <form method="POST" action="{{ route('mentor.group-sessions.store') }}" class="grid gap-3 rounded-md border border-[var(--ump-border)] bg-white p-3 sm:grid-cols-2">
+                @csrf
+                <div class="sm:col-span-2">
+                    <label for="group_session_title" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Group Session Title</label>
+                    <input id="group_session_title" name="title" type="text" value="{{ old('title') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
+                </div>
+                <div>
+                    <label for="group_session_date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Date</label>
+                    <input id="group_session_date" name="event_date" type="date" value="{{ old('event_date') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
+                </div>
+                <div>
+                    <label for="group_session_time" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Time</label>
+                    <input id="group_session_time" name="event_time" type="time" value="{{ old('event_time') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
+                </div>
+                <div class="sm:col-span-2">
+                    <label for="group_session_venue" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ump-primary-navy)]">Venue</label>
+                    <input id="group_session_venue" name="venue" type="text" value="{{ old('venue') }}" class="ump-focusable w-full rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm" required>
+                </div>
+                <div class="sm:col-span-2">
+                    <x-ui.button type="submit">Create Group Session</x-ui.button>
+                </div>
+            </form>
+
+            <div class="mt-3 space-y-2 text-sm">
+                @forelse (($groupSessions ?? collect()) as $groupSession)
+                    <div class="rounded-md border border-[var(--ump-border)] p-3">
+                        <p class="font-semibold text-[var(--ump-primary-navy)]">{{ $groupSession->title }}</p>
+                        <p class="mt-1 text-xs ump-muted">
+                            {{ optional($groupSession->event_date)->format('Y-m-d') ?? '-' }}
+                            ·
+                            {{ $groupSession->event_time ? substr((string) $groupSession->event_time, 0, 5) : '-' }}
+                            ·
+                            {{ $groupSession->venue }}
+                        </p>
+                    </div>
+                @empty
+                    <p class="ump-muted">No group sessions created yet.</p>
                 @endforelse
             </div>
         </x-ui.card>
@@ -134,7 +184,7 @@
                                                 -
                                                 {{ \Carbon\Carbon::parse($session->timeSlot->end_time)->format('H:i') }}
                                             </p>
-                                            <p class="truncate">{{ optional($session->student)->name ?? 'Student' }}</p>
+                                            <p class="truncate">{{ optional($session->student)->name ?? 'Mentee' }}</p>
                                         </div>
                                     @endforeach
 

@@ -9,10 +9,15 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-[var(--ump-page-gray)] font-sans text-[var(--ump-text-dark)]">
-    <header class="border-b border-[var(--ump-border)] bg-[var(--ump-primary-navy)]">
+    <header class="border-b border-[var(--ump-border)] bg-white">
         <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
-            <p class="text-sm font-semibold text-[var(--ump-white)]">UMP UMPCFERI Mentorship Portal</p>
-            <a href="{{ route('dashboard') }}" class="ump-btn ump-btn-primary ump-focusable px-3 py-2 text-sm">Back to Home</a>
+            <a href="{{ route('dashboard') }}" class="ump-focusable inline-flex" aria-label="Go to home">
+                @if (file_exists(public_path('images/ump-logo.png')))
+                    <img src="{{ asset('images/ump-logo.png') }}" alt="University of Mpumalanga" class="h-14 w-auto rounded bg-white px-2 py-1 md:h-16">
+                @else
+                    <span class="text-sm font-semibold text-[var(--ump-primary-navy)]">UMP UMPCFERI Mentorship Portal</span>
+                @endif
+            </a>
         </div>
     </header>
 
@@ -21,11 +26,11 @@
             <div class="mb-5 text-center">
                 @if (file_exists(public_path('images/ump-logo.png')))
                     <div class="mb-3 flex justify-center">
-                        <img src="{{ asset('images/ump-logo.png') }}" alt="University of Mpumalanga" class="h-14 w-auto">
+                        <img src="{{ asset('images/ump-logo.png') }}" alt="University of Mpumalanga" class="h-16 w-auto">
                     </div>
                 @endif
                 <p class="text-xl font-semibold text-[var(--ump-primary-navy)]">User Sign In</p>
-                <p class="mt-1 text-sm ump-muted">Sign in as a student, mentor, or admin.</p>
+                <p class="mt-1 text-sm ump-muted">Sign in as a mentee, mentor, or admin.</p>
             </div>
 
             @if (session('status'))
@@ -70,7 +75,7 @@
 
             <div class="grid gap-2 sm:grid-cols-2">
                 <a href="{{ route('oauth.redirect', ['provider' => 'google']) }}" class="ump-focusable inline-flex items-center justify-center rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm font-medium text-[var(--ump-text-dark)] transition hover:bg-[var(--ump-page-gray)]">Google</a>
-                <a href="{{ route('oauth.redirect', ['provider' => 'github']) }}" class="ump-focusable inline-flex items-center justify-center rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm font-medium text-[var(--ump-text-dark)] transition hover:bg-[var(--ump-page-gray)]">GitHub</a>
+                <a href="{{ route('oauth.redirect', ['provider' => 'facebook']) }}" class="ump-focusable inline-flex items-center justify-center rounded-md border border-[var(--ump-border)] bg-white px-3 py-2 text-sm font-medium text-[var(--ump-text-dark)] transition hover:bg-[var(--ump-page-gray)]">Facebook</a>
             </div>
         </section>
     </div>
