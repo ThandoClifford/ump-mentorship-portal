@@ -67,14 +67,14 @@ return [
         ],
 
         'slack' => [
-            'webhook_url' => env('BACKUP_SLACK_WEBHOOK_URL'),
-            'channel' => null,
-            'username' => null,
-            'icon' => null,
+            'webhook_url' => (string) env('BACKUP_SLACK_WEBHOOK_URL', ''),
+            'channel' => (string) env('BACKUP_SLACK_CHANNEL', ''),
+            'username' => (string) env('BACKUP_SLACK_USERNAME', ''),
+            'icon' => (string) env('BACKUP_SLACK_ICON', ''),
         ],
 
         'discord' => [
-            'webhook_url' => env('BACKUP_DISCORD_WEBHOOK_URL'),
+            'webhook_url' => (string) env('BACKUP_DISCORD_WEBHOOK_URL', ''),
             'username' => env('APP_NAME', 'Laravel Backup'),
             'avatar_url' => '',
         ],

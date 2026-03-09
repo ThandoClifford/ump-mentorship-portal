@@ -21,6 +21,10 @@ services:
         value: file
       - key: CACHE_STORE
         value: file
+      - key: BACKUP_DISKS
+        value: local
+      - key: BACKUP_SLACK_WEBHOOK_URL
+        value: ""
       - key: LOG_CHANNEL
         value: stderr
       - key: LOG_LEVEL
