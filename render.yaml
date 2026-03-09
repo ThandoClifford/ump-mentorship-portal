@@ -9,6 +9,10 @@ services:
         value: production
       - key: APP_DEBUG
         value: "false"
+      - key: APP_URL
+        value: https://ump-mentorship-portal.onrender.com
+      - key: ASSET_URL
+        value: https://ump-mentorship-portal.onrender.com
       - key: APP_TIMEZONE
         value: Africa/Johannesburg
       - key: APP_KEY
