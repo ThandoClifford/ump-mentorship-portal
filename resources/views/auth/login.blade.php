@@ -6,7 +6,7 @@
     <title>Sign In | UMP Mentorship Portal</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <x-head-assets />
 </head>
 <body class="min-h-screen bg-[var(--ump-page-gray)] font-sans text-[var(--ump-text-dark)]">
     <header class="border-b border-[var(--ump-border)] bg-white">
